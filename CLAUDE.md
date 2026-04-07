@@ -117,11 +117,11 @@ SupabaseTodoRepository
 - [x] 아카이브 스와이프 삭제 (Dismissible) + trailing 복구 버튼
 - [ ] ~~Swift WidgetKit Extension~~ → 제외 (Windows 개발 환경)
 
-### ⬜ Phase 3 — 완성도 (미진행)
-- [ ] Undo 스낵바 (체크 후 2초 이내 취소)
+### 🔄 Phase 3 — 완성도 (진행 중)
+- [x] Undo 스낵바 (체크 후 2초, 취소 시 복구)
+- [x] Empty State UI 고도화 (elasticOut 애니메이션, 부제목)
 - [ ] 다크모드 완전 검증
-- [ ] Empty State UI 고도화
-- [ ] 앱 아이콘 / 스플래시 스크린
+- [ ] 앱 아이콘 / 스플래시 스크린 (이미지 에셋 필요)
 - [ ] TestFlight / macOS / Windows 배포 테스트
 
 ### ⬜ Phase 4 — 로드맵

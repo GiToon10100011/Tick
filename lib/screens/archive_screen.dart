@@ -19,21 +19,34 @@ class ArchiveScreen extends ConsumerWidget {
         error: (e, _) => Center(child: Text('오류: $e')),
         data: (todos) {
           if (todos.isEmpty) {
+            final color = Theme.of(context).colorScheme.onSurfaceVariant;
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.archive_outlined,
-                    size: 64,
-                    color: Theme.of(context).colorScheme.outlineVariant,
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.8, end: 1.0),
+                    duration: const Duration(milliseconds: 400),
+                    curve: Curves.elasticOut,
+                    builder: (context, value, child) =>
+                        Transform.scale(scale: value, child: child),
+                    child: Icon(Icons.archive_outlined, size: 72, color: color.withAlpha(80)),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     '완료된 항목이 없어요',
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(color: color, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '할 일을 체크하면 여기에 쌓여요',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: color.withAlpha(160)),
                   ),
                 ],
               ),
