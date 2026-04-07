@@ -149,6 +149,8 @@ flutter run \
   --dart-define=SUPABASE_ANON_KEY=eyJxxx \
   --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com \
   --dart-define=GOOGLE_IOS_CLIENT_ID=xxxx.apps.googleusercontent.com
+
+flutter run --dart-define-from-file=.env
 ```
 
 **iOS 빌드 시 추가 설정:**
