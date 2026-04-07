@@ -1,6 +1,7 @@
 # Tick — CLAUDE.md
 
 > 이 파일은 Claude Code가 프로젝트 컨텍스트를 즉시 파악하기 위한 문서입니다.
+> **마지막 업데이트: 2026-04-08**
 
 ---
 
@@ -41,7 +42,7 @@ lib/
 │   └── todo_item.dart                 # TodoItem, fromMap/toMap, 날짜 포맷
 ├── repositories/
 │   ├── todo_repository.dart           # abstract interface
-│   ├── supabase_todo_repo.dart        # Supabase 구현체 + 오프라인 큐 통합
+│   ├── supabase_todo_repo.dart        # REST 초기 fetch + onPostgresChanges Realtime + 오프라인 큐
 │   └── local_queue_repo.dart          # Hive 기반 오프라인 작업 큐
 ├── providers/
 │   ├── auth_provider.dart             # authStateProvider, currentUserProvider
@@ -50,12 +51,19 @@ lib/
 ├── screens/
 │   ├── auth/
 │   │   ├── login_screen.dart          # 이메일 + Google 로그인
-│   │   └── signup_screen.dart         # 이메일 회원가입
+│   │   └── signup_screen.dart         # 이메일 회원가입 (이메일 인증 없음)
 │   ├── main_screen.dart               # 미완료 Todo 목록 + 하단 추가 입력창
 │   ├── archive_screen.dart            # 완료 목록, 롱프레스 복구/삭제
 │   └── settings_screen.dart          # 계정 이메일, 로그아웃
 └── widgets/
     └── todo_tile.dart                 # 체크박스 + 페이드아웃 애니메이션
+ios/
+├── scripts/decode_dart_defines.sh     # --dart-define → DartDefines.xcconfig 디코딩 스크립트
+├── Flutter/
+│   ├── Debug.xcconfig                 # DartDefines.xcconfig include 포함
+│   ├── Release.xcconfig               # DartDefines.xcconfig include 포함
+│   └── DartDefines.xcconfig           # 빌드 시 자동 생성 (gitignore됨)
+└── Runner/Info.plist                  # GOOGLE_IOS_CLIENT_ID → $(GOOGLE_IOS_CLIENT_ID) 변수 참조
 supabase/
 └── migrations/001_init.sql            # todos 테이블, RLS, Realtime 설정
 ```
@@ -70,10 +78,16 @@ UI (ConsumerWidget)
 Riverpod Providers
     ↓
 SupabaseTodoRepository
-    ├── 온라인 → Supabase 직접 호출
+    ├── 온라인 → REST 초기 fetch + onPostgresChanges 구독 (변경 시 re-fetch)
     └── 오프라인 → LocalQueueRepository (Hive)
                   → 온라인 복귀 시 _flush() 자동 실행
 ```
+
+**Realtime 전략 (중요):**
+- `.stream()` 대신 **REST 초기 fetch + `onPostgresChanges`** 패턴 사용
+- 이유: `.stream()`은 Realtime에 완전 의존 → timeout 시 데이터 미표시
+- 현재 구조: 초기 데이터는 항상 REST로 표시, Realtime은 변경 알림 전용
+- channel ID: `active_todos_{userId}`
 
 **인증 플로우:**
 ```
@@ -89,7 +103,7 @@ SupabaseTodoRepository
 ### ✅ Phase 1 — 인증 + 기본 CRUD
 - [x] Flutter 프로젝트 셋업 (iOS/macOS/Windows)
 - [x] Supabase DB 스키마 + RLS 마이그레이션 스크립트
-- [x] 이메일/비밀번호 로그인 · 회원가입
+- [x] 이메일/비밀번호 로그인 · 회원가입 (이메일 인증 없음)
 - [x] Google 소셜 로그인
 - [x] ~~Apple 소셜 로그인~~ → 제외 (Apple Developer 결제 필요)
 - [x] Todo 추가 / 체크(완료) / 아카이브 기본 기능
@@ -98,7 +112,9 @@ SupabaseTodoRepository
 ### ✅ Phase 2 — 오프라인 대응
 - [x] 오프라인 큐 (Hive) + 온라인 복귀 시 자동 sync
 - [x] connectivity_plus 네트워크 상태 감시
-- [ ] ~~Swift WidgetKit Extension~~ → 제외 (iOS/macOS 위젯, Windows 개발 환경)
+- [x] Realtime timeout 대응 (REST+onPostgresChanges 패턴)
+- [x] iOS --dart-define → plist 환경변수 연동 (decode_dart_defines.sh)
+- [ ] ~~Swift WidgetKit Extension~~ → 제외 (Windows 개발 환경)
 
 ### ⬜ Phase 3 — 완성도 (미진행)
 - [ ] Undo 스낵바 (체크 후 2초 이내 취소)
@@ -123,7 +139,7 @@ SupabaseTodoRepository
 | `SUPABASE_URL` | Supabase 프로젝트 URL |
 | `SUPABASE_ANON_KEY` | Supabase anon public key |
 | `GOOGLE_WEB_CLIENT_ID` | Google OAuth Web Client ID |
-| `GOOGLE_IOS_CLIENT_ID` | Google OAuth iOS Client ID |
+| `GOOGLE_IOS_CLIENT_ID` | Google OAuth iOS Client ID (reversed URL scheme) |
 
 **실행 예시:**
 ```bash
@@ -134,14 +150,17 @@ flutter run \
   --dart-define=GOOGLE_IOS_CLIENT_ID=xxxx.apps.googleusercontent.com
 ```
 
+**iOS 빌드 시 추가 설정:**
+`ios/scripts/decode_dart_defines.sh`를 Xcode Run Script Build Phase에 등록해야 `DartDefines.xcconfig`가 생성됨 → Info.plist의 `$(GOOGLE_IOS_CLIENT_ID)` 참조 동작.
+
 ---
 
 ## Supabase 설정 체크리스트
 
 - [ ] `supabase/migrations/001_init.sql` SQL Editor에서 실행
-- [ ] Authentication → Providers → Email → **Confirm email OFF** (이메일 인증 비활성화)
+- [ ] Authentication → Providers → Email → **Confirm email OFF**
 - [ ] Authentication → Providers → Google → Client ID / Secret 등록
-- [ ] Realtime → `todos` 테이블 활성화 확인
+- [ ] Realtime → `todos` 테이블 활성화 확인 (`ALTER PUBLICATION supabase_realtime ADD TABLE public.todos`)
 
 ---
 
@@ -153,6 +172,8 @@ flutter run \
 | iOS 위젯 제외 | Windows 개발 환경, Phase 4 로드맵으로 이동 |
 | 이메일 인증 비활성화 | 단독 사용자 앱, 불필요한 마찰 제거 |
 | Last Write Wins 충돌 정책 | 단독 사용자 → 복잡한 충돌 해결 불필요 |
+| Realtime에 `.stream()` 미사용 | timeout 시 데이터 미표시 문제 → REST+onPostgresChanges 분리 |
+| plist 환경변수 | --dart-define 값을 xcconfig로 디코딩해 $(VAR) 참조 |
 
 ---
 

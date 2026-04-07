@@ -1,3 +1,6 @@
+# iOS dart-define decoded xcconfig (빌드 시 자동 생성)
+ios/Flutter/DartDefines.xcconfig
+
 # Miscellaneous
 .env
 .env.*

@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import '../core/supabase_client.dart';
 import '../models/todo_item.dart';
 import 'local_queue_repo.dart';
@@ -16,7 +20,6 @@ class SupabaseTodoRepository implements TodoRepository {
 
   String get _userId => supabase.auth.currentUser!.id;
 
-  /// 큐에 쌓인 작업을 순서대로 Supabase에 반영 (Last Write Wins)
   Future<void> _flush() async {
     if (!localQueue.hasPending) return;
 
@@ -45,7 +48,7 @@ class SupabaseTodoRepository implements TodoRepository {
             await supabase.from('todos').delete().eq('id', op['id'] as String);
         }
       } catch (_) {
-        // flush 중 실패 시 나머지는 계속 시도 (다음 연결 때 재시도)
+        // 실패 시 다음 연결 때 재시도
       }
     }
     await localQueue.clearAll();
@@ -54,9 +57,9 @@ class SupabaseTodoRepository implements TodoRepository {
   @override
   Future<TodoItem> addTodo(String text) async {
     final now = DateTime.now();
-    final tempId = 'local_${now.millisecondsSinceEpoch}';
 
     if (!_online) {
+      final tempId = 'local_${now.millisecondsSinceEpoch}';
       await localQueue.enqueue({
         'type': 'add',
         'id': tempId,
@@ -114,17 +117,54 @@ class SupabaseTodoRepository implements TodoRepository {
     await supabase.from('todos').delete().eq('id', id);
   }
 
+  /// 초기 데이터는 REST로 즉시 가져오고, Realtime은 변경 알림 전용으로 사용.
+  /// Realtime timeout이 발생해도 초기 데이터는 정상 표시됨.
   @override
   Stream<List<TodoItem>> watchActiveTodos() {
-    return supabase
-        .from('todos')
-        .stream(primaryKey: ['id'])
-        .eq('user_id', _userId)
-        .order('created_at')
-        .map((rows) => rows
-            .where((r) => r['is_archived'] == false)
-            .map(TodoItem.fromMap)
-            .toList());
+    late StreamController<List<TodoItem>> controller;
+    RealtimeChannel? channel;
+
+    Future<void> fetchAndEmit() async {
+      try {
+        final data = await supabase
+            .from('todos')
+            .select()
+            .eq('user_id', _userId)
+            .eq('is_archived', false)
+            .order('created_at');
+        if (!controller.isClosed) {
+          controller.add(data.map(TodoItem.fromMap).toList());
+        }
+      } catch (e) {
+        if (!controller.isClosed) controller.addError(e);
+      }
+    }
+
+    controller = StreamController<List<TodoItem>>(
+      onListen: () {
+        fetchAndEmit();
+        channel = supabase
+            .channel('active_todos_$_userId')
+            .onPostgresChanges(
+              event: PostgresChangeEvent.all,
+              schema: 'public',
+              table: 'todos',
+              filter: PostgresChangeFilter(
+                type: PostgresChangeFilterType.eq,
+                column: 'user_id',
+                value: _userId,
+              ),
+              callback: (_) => fetchAndEmit(),
+            )
+            .subscribe();
+      },
+      onCancel: () {
+        channel?.unsubscribe();
+        controller.close();
+      },
+    );
+
+    return controller.stream;
   }
 
   @override
