@@ -39,58 +39,79 @@ class ArchiveScreen extends ConsumerWidget {
               ),
             );
           }
+
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 12),
             itemCount: todos.length,
-            separatorBuilder: (context, index) => const Divider(indent: 16, endIndent: 16),
+            separatorBuilder: (context, index) =>
+                const Divider(indent: 16, endIndent: 16, height: 1),
             itemBuilder: (context, index) {
               final todo = todos[index];
-              return ListTile(
-                leading: Icon(
-                  Icons.check_circle,
-                  color: Theme.of(context).colorScheme.primary,
+
+              return Dismissible(
+                key: ValueKey(todo.id),
+                direction: DismissDirection.endToStart,
+                background: Container(
+                  alignment: Alignment.centerRight,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  color: Colors.red.shade400,
+                  child: const Icon(Icons.delete_outline, color: Colors.white),
                 ),
-                title: Text(
-                  todo.text,
-                  style: const TextStyle(decoration: TextDecoration.lineThrough),
+                confirmDismiss: (_) async {
+                  return await showDialog<bool>(
+                    context: context,
+                    builder: (_) => AlertDialog(
+                      title: const Text('영구 삭제'),
+                      content: Text('"${todo.text}"을(를) 영구 삭제할까요?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(context, false),
+                          child: const Text('취소'),
+                        ),
+                        FilledButton(
+                          style: FilledButton.styleFrom(
+                              backgroundColor: Colors.red.shade400),
+                          onPressed: () => Navigator.pop(context, true),
+                          child: const Text('삭제'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                onDismissed: (_) async {
+                  await ref.read(todoRepositoryProvider).deleteTodo(todo.id);
+                  ref.invalidate(archivedTodosProvider);
+                },
+                child: ListTile(
+                  leading: Icon(
+                    Icons.check_circle,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  title: Text(
+                    todo.text,
+                    style: const TextStyle(decoration: TextDecoration.lineThrough),
+                  ),
+                  subtitle: Text(
+                    '추가: ${todo.formattedCreatedAt}  ·  완료: ${todo.formattedDoneAt}',
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.undo),
+                    tooltip: '완료 취소 (복구)',
+                    onPressed: () async {
+                      await ref.read(todoRepositoryProvider).restoreTodo(todo.id);
+                      ref.invalidate(archivedTodosProvider);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('할 일을 복구했어요')),
+                        );
+                      }
+                    },
+                  ),
                 ),
-                subtitle: Text('추가: ${todo.formattedCreatedAt}  완료: ${todo.formattedDoneAt}'),
-                onLongPress: () => _showActions(context, ref, todo.id),
               );
             },
           );
         },
-      ),
-    );
-  }
-
-  void _showActions(BuildContext context, WidgetRef ref, String id) {
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.undo),
-              title: const Text('완료 취소 (복구)'),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(todoRepositoryProvider).restoreTodo(id);
-                ref.invalidate(archivedTodosProvider);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.delete_outline, color: Colors.red.shade400),
-              title: Text('영구 삭제', style: TextStyle(color: Colors.red.shade400)),
-              onTap: () async {
-                Navigator.pop(context);
-                await ref.read(todoRepositoryProvider).deleteTodo(id);
-                ref.invalidate(archivedTodosProvider);
-              },
-            ),
-          ],
-        ),
       ),
     );
   }

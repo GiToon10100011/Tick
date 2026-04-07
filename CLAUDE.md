@@ -114,6 +114,7 @@ SupabaseTodoRepository
 - [x] connectivity_plus 네트워크 상태 감시
 - [x] Realtime timeout 대응 (REST+onPostgresChanges 패턴)
 - [x] iOS --dart-define → plist 환경변수 연동 (decode_dart_defines.sh)
+- [x] 아카이브 스와이프 삭제 (Dismissible) + trailing 복구 버튼
 - [ ] ~~Swift WidgetKit Extension~~ → 제외 (Windows 개발 환경)
 
 ### ⬜ Phase 3 — 완성도 (미진행)

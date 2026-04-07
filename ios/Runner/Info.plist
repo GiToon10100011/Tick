@@ -9,7 +9,6 @@
 		<dict>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<!-- Google Sign In reversed client ID: --dart-define=GOOGLE_IOS_CLIENT_ID=xxx.apps.googleusercontent.com -->
 				<string>$(GOOGLE_IOS_CLIENT_ID)</string>
 			</array>
 		</dict>
