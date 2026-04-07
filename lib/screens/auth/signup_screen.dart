@@ -38,12 +38,7 @@ class _SignupScreenState extends State<SignupScreen> {
     setState(() => _loading = true);
     try {
       await supabase.auth.signUp(email: email, password: password);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('인증 이메일을 발송했습니다. 이메일을 확인해주세요.')),
-        );
-        Navigator.pop(context);
-      }
+      // 이메일 인증 비활성화 시 signUp 즉시 세션 발급 → AuthGate가 자동으로 메인으로 이동
     } on AuthException catch (e) {
       if (mounted) _showError(e.message);
     } finally {
