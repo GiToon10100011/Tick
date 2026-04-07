@@ -24,7 +24,7 @@
 
 - Todo 완료 시 메인 뷰에서 즉시 사라짐 → 아카이브로 이동 (삭제 아님)
 - 날짜만 표시 (`M월 D일`, 올해 아니면 연도 포함)
-- 체크 시 200ms 페이드아웃 애니메이션
+- 체크 시 200ms 페이드아웃 + 2초 Undo 스낵바
 - 강조색: `#5ECFB1` (파스텔 민트), Material 3
 
 ---
@@ -52,8 +52,8 @@ lib/
 │   ├── auth/
 │   │   ├── login_screen.dart          # 이메일 + Google 로그인
 │   │   └── signup_screen.dart         # 이메일 회원가입 (이메일 인증 없음)
-│   ├── main_screen.dart               # 미완료 Todo 목록 + 하단 추가 입력창
-│   ├── archive_screen.dart            # 완료 목록, 롱프레스 복구/삭제
+│   ├── main_screen.dart               # 미완료 Todo 목록 + 하단 추가 입력창 + Undo 스낵바
+│   ├── archive_screen.dart            # 완료 목록, 스와이프 삭제, trailing 복구 버튼
 │   └── settings_screen.dart          # 계정 이메일, 로그아웃
 └── widgets/
     └── todo_tile.dart                 # 체크박스 + 페이드아웃 애니메이션
@@ -63,9 +63,10 @@ ios/
 │   ├── Debug.xcconfig                 # DartDefines.xcconfig include 포함
 │   ├── Release.xcconfig               # DartDefines.xcconfig include 포함
 │   └── DartDefines.xcconfig           # 빌드 시 자동 생성 (gitignore됨)
-└── Runner/Info.plist                  # GOOGLE_IOS_CLIENT_ID → $(GOOGLE_IOS_CLIENT_ID) 변수 참조
+└── Runner/Info.plist                  # $(GOOGLE_IOS_CLIENT_ID) 변수 참조
 supabase/
 └── migrations/001_init.sql            # todos 테이블, RLS, Realtime 설정
+changelog/                             # 날짜별 작업 변경 내역
 ```
 
 ---
@@ -83,10 +84,9 @@ SupabaseTodoRepository
                   → 온라인 복귀 시 _flush() 자동 실행
 ```
 
-**Realtime 전략 (중요):**
-- `.stream()` 대신 **REST 초기 fetch + `onPostgresChanges`** 패턴 사용
-- 이유: `.stream()`은 Realtime에 완전 의존 → timeout 시 데이터 미표시
-- 현재 구조: 초기 데이터는 항상 REST로 표시, Realtime은 변경 알림 전용
+**Realtime 전략:**
+- `.stream()` 대신 REST 초기 fetch + `onPostgresChanges` 패턴
+- 초기 데이터는 항상 REST로 표시, Realtime은 변경 알림 전용
 - channel ID: `active_todos_{userId}`
 
 **인증 플로우:**
@@ -122,7 +122,7 @@ SupabaseTodoRepository
 - [x] Empty State UI 고도화 (elasticOut 애니메이션, 부제목)
 - [ ] 다크모드 완전 검증
 - [ ] 앱 아이콘 / 스플래시 스크린 (이미지 에셋 필요)
-- [ ] TestFlight / macOS / Windows 배포 테스트
+- [ ] 플랫폼별 배포 설정 완료
 
 ### ⬜ Phase 4 — 로드맵
 - [ ] macOS 메뉴바 미니 위젯
@@ -150,11 +150,76 @@ flutter run \
   --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com \
   --dart-define=GOOGLE_IOS_CLIENT_ID=xxxx.apps.googleusercontent.com
 
+# 또는 .env 파일로 한 번에
 flutter run --dart-define-from-file=.env
 ```
 
-**iOS 빌드 시 추가 설정:**
-`ios/scripts/decode_dart_defines.sh`를 Xcode Run Script Build Phase에 등록해야 `DartDefines.xcconfig`가 생성됨 → Info.plist의 `$(GOOGLE_IOS_CLIENT_ID)` 참조 동작.
+---
+
+## 플랫폼별 빌드 및 설치 가이드
+
+> App Store 등록 불필요. 개인 기기에 직접 설치해서 사용.
+
+### Windows
+
+```bash
+flutter build windows \
+  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=eyJxxx \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com
+
+# 또는
+flutter build windows --dart-define-from-file=.env
+```
+
+- 결과물: `build/windows/x64/runner/Release/`
+- **`Release` 폴더 전체**를 유지해야 함 (`tick.exe`만 이동하면 실행 불가)
+- 권장: 폴더를 `C:\Program Files\Tick\`으로 이동 후 `tick.exe` 바로가기를 바탕화면/시작메뉴에 배치
+
+### macOS
+
+```bash
+flutter build macos \
+  --dart-define=SUPABASE_URL=https://xxxx.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=eyJxxx \
+  --dart-define=GOOGLE_WEB_CLIENT_ID=xxxx.apps.googleusercontent.com
+```
+
+- 결과물: `build/macos/Build/Products/Release/tick.app`
+- `tick.app`을 `/Applications` 폴더에 드래그 → Spotlight 검색, Dock 등록 가능
+- 본인 Mac에서 직접 실행 시 별도 서명 불필요
+
+### iPhone (App Store 없이)
+
+**최초 1회 설정 (MacBook + Xcode 필요):**
+
+1. `ios/Runner.xcworkspace`를 Xcode로 열기
+2. `Runner` → **Signing & Capabilities** 탭
+3. **Team** → Add an Account → 본인 Apple ID 로그인 (무료 계정 OK)
+4. Bundle Identifier 변경: `com.내이름.tick` (유니크하게)
+5. iPhone 연결 → 상단에서 기기 선택 → **▶ Run**
+6. iPhone에서 최초 1회: `설정 → 일반 → VPN 및 기기 관리 → Apple ID → 신뢰`
+
+**iOS 빌드 시 Xcode Build Phase 설정 (최초 1회):**
+- Runner Target → Build Phases → `+` → New Run Script Phase
+- 내용: `"${SRCROOT}/scripts/decode_dart_defines.sh"`
+- 위치: **Compile Sources 이전**으로 이동
+- 이 스크립트가 `--dart-define` 값을 `DartDefines.xcconfig`로 디코딩 → `$(GOOGLE_IOS_CLIENT_ID)` plist 참조 동작
+
+**7일 후 인증서 만료 시:**
+- iPhone 연결 → Xcode에서 **▶ Run** 한 번 → 자동 재서명 (코드 변경 불필요)
+
+---
+
+## 플랫폼 비교
+
+| 항목 | Windows | macOS | iPhone |
+|------|---------|-------|--------|
+| 빌드 환경 | Windows PC | MacBook | MacBook (Xcode) |
+| 설치 방법 | Release 폴더 보관 + 바로가기 | `/Applications` 드래그 | Xcode Run |
+| 재설치 주기 | 없음 | 없음 | 7일마다 재서명 |
+| 비용 | 무료 | 무료 | 무료 (Apple ID만 있으면 됨) |
+| 실시간 동기화 | ✅ | ✅ | ✅ |
 
 ---
 
@@ -163,7 +228,7 @@ flutter run --dart-define-from-file=.env
 - [ ] `supabase/migrations/001_init.sql` SQL Editor에서 실행
 - [ ] Authentication → Providers → Email → **Confirm email OFF**
 - [ ] Authentication → Providers → Google → Client ID / Secret 등록
-- [ ] Realtime → `todos` 테이블 활성화 확인 (`ALTER PUBLICATION supabase_realtime ADD TABLE public.todos`)
+- [ ] Realtime → `todos` 테이블 활성화 확인
 
 ---
 
@@ -172,10 +237,11 @@ flutter run --dart-define-from-file=.env
 | 결정 | 이유 |
 |------|------|
 | Apple 로그인 제외 | Apple Developer Program 연회비 필요 |
+| App Store 미등록 | 개인 단독 사용, Xcode 직접 설치로 충분 |
 | iOS 위젯 제외 | Windows 개발 환경, Phase 4 로드맵으로 이동 |
 | 이메일 인증 비활성화 | 단독 사용자 앱, 불필요한 마찰 제거 |
 | Last Write Wins 충돌 정책 | 단독 사용자 → 복잡한 충돌 해결 불필요 |
-| Realtime에 `.stream()` 미사용 | timeout 시 데이터 미표시 문제 → REST+onPostgresChanges 분리 |
+| Realtime에 `.stream()` 미사용 | timeout 시 데이터 미표시 → REST+onPostgresChanges 분리 |
 | plist 환경변수 | --dart-define 값을 xcconfig로 디코딩해 $(VAR) 참조 |
 
 ---
@@ -192,7 +258,7 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 
 ---
 
-## Flutter 실행 경로 (이 환경)
+## Flutter 실행 경로 (Windows 개발 환경)
 
 ```
 C:/Users/tyler/Downloads/flutter_windows_3.41.6-stable/flutter/bin/flutter
