@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -23,6 +24,7 @@ class SupabaseTodoRepository implements TodoRepository {
   String get _userId => supabase.auth.currentUser!.id;
 
   static Future<void> _syncWidget(List<TodoItem> todos) async {
+    if (!Platform.isIOS) return;
     final texts = todos.take(5).map((t) => t.text).toList();
     await HomeWidget.saveWidgetData<String>('todos', jsonEncode(texts));
     await HomeWidget.updateWidget(iOSName: 'TickWidget');
