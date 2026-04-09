@@ -1,6 +1,6 @@
 name: tick
 description: "경량 Todo 앱 — Supabase 기반 계정 동기화"
-publish_to: 'none'
+publish_to: "none"
 version: 1.0.0+1
 
 environment:
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  home_widget: ^0.7.0
   cupertino_icons: ^1.0.8
   supabase_flutter: ^2.9.0
   flutter_riverpod: ^2.6.1

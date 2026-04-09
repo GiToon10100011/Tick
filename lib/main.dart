@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:home_widget/home_widget.dart';
 
 import 'core/env.dart';
 import 'core/theme.dart';
@@ -17,6 +18,7 @@ Future<void> main() async {
     url: Env.supabaseUrl,
     anonKey: Env.supabaseAnonKey,
   );
+  await HomeWidget.setAppGroupId('group.com.tick.tick');
   runApp(const ProviderScope(child: TickApp()));
 }
 

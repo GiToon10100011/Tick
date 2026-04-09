@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
 
+import 'package:home_widget/home_widget.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/supabase_client.dart';
@@ -19,6 +21,12 @@ class SupabaseTodoRepository implements TodoRepository {
   }
 
   String get _userId => supabase.auth.currentUser!.id;
+
+  static Future<void> _syncWidget(List<TodoItem> todos) async {
+    final texts = todos.take(5).map((t) => t.text).toList();
+    await HomeWidget.saveWidgetData<String>('todos', jsonEncode(texts));
+    await HomeWidget.updateWidget(iOSName: 'TickWidget');
+  }
 
   Future<void> _flush() async {
     if (!localQueue.hasPending) return;
@@ -133,7 +141,9 @@ class SupabaseTodoRepository implements TodoRepository {
             .eq('is_archived', false)
             .order('created_at');
         if (!controller.isClosed) {
-          controller.add(data.map(TodoItem.fromMap).toList());
+          final todos = data.map(TodoItem.fromMap).toList();
+          controller.add(todos);
+          _syncWidget(todos);
         }
       } catch (e) {
         if (!controller.isClosed) controller.addError(e);
