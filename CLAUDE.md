@@ -1,7 +1,7 @@
 # Tick — CLAUDE.md
 
 > 이 파일은 Claude Code가 프로젝트 컨텍스트를 즉시 파악하기 위한 문서입니다.
-> **마지막 업데이트: 2026-04-08**
+> **마지막 업데이트: 2026-04-09**
 
 ---
 
@@ -63,7 +63,12 @@ ios/
 │   ├── Debug.xcconfig                 # DartDefines.xcconfig include 포함
 │   ├── Release.xcconfig               # DartDefines.xcconfig include 포함
 │   └── DartDefines.xcconfig           # 빌드 시 자동 생성 (gitignore됨)
-└── Runner/Info.plist                  # $(GOOGLE_IOS_CLIENT_ID) 변수 참조
+├── Runner/Info.plist                  # $(GOOGLE_IOS_CLIENT_ID) 변수 참조
+└── TickWidget/                        # WidgetKit Extension (Swift)
+    ├── TickWidget.swift               # TimelineProvider + SwiftUI View (Small/Medium)
+    ├── TickWidgetBundle.swift         # @main 진입점
+    ├── TickWidgetControl.swift        # Control Widget (Xcode 자동생성 보일러플레이트)
+    └── TickWidgetLiveActivity.swift   # Live Activity (Xcode 자동생성 보일러플레이트)
 supabase/
 └── migrations/001_init.sql            # todos 테이블, RLS, Realtime 설정
 changelog/                             # 날짜별 작업 변경 내역
@@ -115,14 +120,14 @@ SupabaseTodoRepository
 - [x] Realtime timeout 대응 (REST+onPostgresChanges 패턴)
 - [x] iOS --dart-define → plist 환경변수 연동 (decode_dart_defines.sh)
 - [x] 아카이브 스와이프 삭제 (Dismissible) + trailing 복구 버튼
-- [ ] ~~Swift WidgetKit Extension~~ → 제외 (Windows 개발 환경)
+- [x] Swift WidgetKit Extension (home_widget, App Group, Small/Medium 위젯)
 
 ### 🔄 Phase 3 — 완성도 (진행 중)
 - [x] Undo 스낵바 (체크 후 2초, 취소 시 복구)
 - [x] Empty State UI 고도화 (elasticOut 애니메이션, 부제목)
-- [ ] 다크모드 완전 검증
+- [x] 다크모드 완전 검증 (Material 3 colorSchemeSeed가 라이트/다크 자동 처리)
+- [x] 플랫폼별 개인 설치 가이드 완료 (`docs/install-guide.md`)
 - [ ] 앱 아이콘 / 스플래시 스크린 (이미지 에셋 필요)
-- [ ] 플랫폼별 배포 설정 완료
 
 ### ⬜ Phase 4 — 로드맵
 - [ ] macOS 메뉴바 미니 위젯
@@ -238,7 +243,7 @@ flutter build macos \
 |------|------|
 | Apple 로그인 제외 | Apple Developer Program 연회비 필요 |
 | App Store 미등록 | 개인 단독 사용, Xcode 직접 설치로 충분 |
-| iOS 위젯 제외 | Windows 개발 환경, Phase 4 로드맵으로 이동 |
+| iOS WidgetKit Extension 구현 | macOS 환경으로 전환 후 구현. home_widget + App Group (group.com.tick.tick) |
 | 이메일 인증 비활성화 | 단독 사용자 앱, 불필요한 마찰 제거 |
 | Last Write Wins 충돌 정책 | 단독 사용자 → 복잡한 충돌 해결 불필요 |
 | Realtime에 `.stream()` 미사용 | timeout 시 데이터 미표시 → REST+onPostgresChanges 분리 |
@@ -258,8 +263,10 @@ Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>"
 
 ---
 
-## Flutter 실행 경로 (Windows 개발 환경)
+## 개발 환경 메모
 
-```
-C:/Users/tyler/Downloads/flutter_windows_3.41.6-stable/flutter/bin/flutter
-```
+- 현재 개발 환경: **macOS** (Homebrew Flutter: `/opt/homebrew/share/flutter`)
+- iOS 빌드: `flutter run --release --dart-define-from-file=.env` (릴리즈 모드 권장)
+- Xcode 26 + CocoaPods 호환: xcodeproj `constants.rb`에 object version 70 수동 패치 필요
+  - 경로: `~/.rbenv/versions/3.2.2/lib/ruby/gems/3.2.0/gems/xcodeproj-1.27.0/lib/xcodeproj/constants.rb`
+  - `77 => 'Xcode 16.0'` 아래에 `70 => 'Xcode 26.0'` 추가
