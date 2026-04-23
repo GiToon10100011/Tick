@@ -54,6 +54,11 @@ class SupabaseTodoRepository implements TodoRepository {
               'is_archived': false,
               'done_at': null,
             }).eq('id', op['id'] as String);
+          case 'update':
+            await supabase
+                .from('todos')
+                .update({'text': op['text']})
+                .eq('id', op['id'] as String);
           case 'delete':
             await supabase.from('todos').delete().eq('id', op['id'] as String);
         }
@@ -116,6 +121,15 @@ class SupabaseTodoRepository implements TodoRepository {
         .from('todos')
         .update({'is_archived': false, 'done_at': null})
         .eq('id', id);
+  }
+
+  @override
+  Future<void> updateTodo(String id, String text) async {
+    if (!_online) {
+      await localQueue.enqueue({'type': 'update', 'id': id, 'text': text});
+      return;
+    }
+    await supabase.from('todos').update({'text': text}).eq('id', id);
   }
 
   @override

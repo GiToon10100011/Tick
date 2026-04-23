@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -6,13 +8,24 @@ import '../providers/todo_provider.dart';
 class ArchiveScreen extends ConsumerWidget {
   const ArchiveScreen({super.key});
 
+  bool get _isDesktop => Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final todosAsync = ref.watch(archivedTodosProvider);
+    final notifier = ref.read(archivedTodosProvider.notifier);
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('아카이브', style: TextStyle(fontWeight: FontWeight.bold)),
+        actions: [
+          if (_isDesktop)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: '새로고침',
+              onPressed: notifier.refresh,
+            ),
+        ],
       ),
       body: todosAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -92,8 +105,18 @@ class ArchiveScreen extends ConsumerWidget {
                   );
                 },
                 onDismissed: (_) async {
-                  await ref.read(todoRepositoryProvider).deleteTodo(todo.id);
-                  ref.invalidate(archivedTodosProvider);
+                  try {
+                    await notifier.deleteTodo(todo.id);
+                  } catch (e) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('삭제 실패: $e'),
+                          backgroundColor: Colors.red.shade400,
+                        ),
+                      );
+                    }
+                  }
                 },
                 child: ListTile(
                   leading: Icon(
@@ -111,12 +134,22 @@ class ArchiveScreen extends ConsumerWidget {
                     icon: const Icon(Icons.undo),
                     tooltip: '완료 취소 (복구)',
                     onPressed: () async {
-                      await ref.read(todoRepositoryProvider).restoreTodo(todo.id);
-                      ref.invalidate(archivedTodosProvider);
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('할 일을 복구했어요')),
-                        );
+                      try {
+                        await notifier.restoreTodo(todo.id);
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('할 일을 복구했어요')),
+                          );
+                        }
+                      } catch (e) {
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('복구 실패: $e'),
+                              backgroundColor: Colors.red.shade400,
+                            ),
+                          );
+                        }
                       }
                     },
                   ),

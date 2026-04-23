@@ -37,6 +37,17 @@ class TodoItem {
     };
   }
 
+  TodoItem copyWith({String? text}) {
+    return TodoItem(
+      id: id,
+      userId: userId,
+      text: text ?? this.text,
+      isArchived: isArchived,
+      createdAt: createdAt,
+      doneAt: doneAt,
+    );
+  }
+
   String get formattedCreatedAt => _formatDate(createdAt);
   String get formattedDoneAt => doneAt != null ? _formatDate(doneAt!) : '';
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -29,7 +31,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
     FocusScope.of(context).unfocus();
 
     try {
-      await ref.read(todoRepositoryProvider).addTodo(text);
+      await ref.read(activeTodosProvider.notifier).addTodo(text);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -40,7 +42,16 @@ class _MainScreenState extends ConsumerState<MainScreen> {
   }
 
   Future<void> _archiveTodo(String id, String text) async {
-    await ref.read(todoRepositoryProvider).archiveTodo(id);
+    try {
+      await ref.read(activeTodosProvider.notifier).archiveTodo(id);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('완료 처리 실패: $e'), backgroundColor: Colors.red.shade400),
+        );
+      }
+      return;
+    }
     if (!mounted) return;
 
     ScaffoldMessenger.of(context)
@@ -51,11 +62,13 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           duration: const Duration(seconds: 2),
           action: SnackBarAction(
             label: '취소',
-            onPressed: () => ref.read(todoRepositoryProvider).restoreTodo(id),
+            onPressed: () => ref.read(activeTodosProvider.notifier).restoreTodo(id),
           ),
         ),
       );
   }
+
+  bool get _isDesktop => Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
   @override
   Widget build(BuildContext context) {
@@ -65,6 +78,12 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       appBar: AppBar(
         title: const Text('Tick', style: TextStyle(fontWeight: FontWeight.bold)),
         actions: [
+          if (_isDesktop)
+            IconButton(
+              icon: const Icon(Icons.refresh),
+              tooltip: '새로고침',
+              onPressed: () => ref.read(activeTodosProvider.notifier).refresh(),
+            ),
           TextButton(
             onPressed: () => Navigator.push(
               context,
@@ -91,6 +110,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                 key: ValueKey(todo.id),
                 todo: todo,
                 onCheck: () => _archiveTodo(todo.id, todo.text),
+                onEdit: (newText) =>
+                    ref.read(activeTodosProvider.notifier).updateTodo(todo.id, newText),
               );
             },
           );
