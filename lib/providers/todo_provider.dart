@@ -207,3 +207,15 @@ final archivedTodosProvider = StateNotifierProvider.autoDispose<
     ArchivedTodosNotifier, AsyncValue<List<TodoItem>>>((ref) {
   return ArchivedTodosNotifier(ref.watch(todoRepositoryProvider));
 });
+
+// ---------------------------------------------------------------------------
+// Sort
+// ---------------------------------------------------------------------------
+
+enum SortOrder { dateAsc, dateDesc, nameAsc }
+
+final activeSortProvider =
+    StateProvider<SortOrder>((ref) => SortOrder.dateAsc);
+
+final archiveSortProvider =
+    StateProvider<SortOrder>((ref) => SortOrder.dateDesc);

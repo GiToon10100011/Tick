@@ -84,6 +84,7 @@ class _TodoTileState extends State<TodoTile> with SingleTickerProviderStateMixin
           SnackBar(
             content: Text('수정 실패: $e'),
             backgroundColor: Colors.red.shade400,
+            duration: const Duration(seconds: 2),
           ),
         );
       }

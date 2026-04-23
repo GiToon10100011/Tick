@@ -3,9 +3,25 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/todo_item.dart';
 import '../providers/todo_provider.dart';
+import '../widgets/sort_menu.dart';
 import '../widgets/todo_tile.dart';
 import 'archive_screen.dart';
+
+List<TodoItem> _applySort(List<TodoItem> list, SortOrder order) {
+  final sorted = [...list];
+  switch (order) {
+    case SortOrder.dateAsc:
+      sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    case SortOrder.dateDesc:
+      sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    case SortOrder.nameAsc:
+      sorted.sort((a, b) =>
+          a.text.toLowerCase().compareTo(b.text.toLowerCase()));
+  }
+  return sorted;
+}
 
 class MainScreen extends ConsumerStatefulWidget {
   const MainScreen({super.key});
@@ -16,6 +32,8 @@ class MainScreen extends ConsumerStatefulWidget {
 
 class _MainScreenState extends ConsumerState<MainScreen> {
   final _textCtrl = TextEditingController();
+
+  static const _snackDuration = Duration(seconds: 2);
 
   @override
   void dispose() {
@@ -34,9 +52,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       await ref.read(activeTodosProvider.notifier).addTodo(text);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('추가 실패: $e'), backgroundColor: Colors.red.shade400),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('추가 실패: $e'),
+          backgroundColor: Colors.red.shade400,
+          duration: _snackDuration,
+        ));
       }
     }
   }
@@ -46,9 +66,11 @@ class _MainScreenState extends ConsumerState<MainScreen> {
       await ref.read(activeTodosProvider.notifier).archiveTodo(id);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('완료 처리 실패: $e'), backgroundColor: Colors.red.shade400),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('완료 처리 실패: $e'),
+          backgroundColor: Colors.red.shade400,
+          duration: _snackDuration,
+        ));
       }
       return;
     }
@@ -56,23 +78,24 @@ class _MainScreenState extends ConsumerState<MainScreen> {
 
     ScaffoldMessenger.of(context)
       ..clearSnackBars()
-      ..showSnackBar(
-        SnackBar(
-          content: Text('"$text" 완료!'),
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-            label: '취소',
-            onPressed: () => ref.read(activeTodosProvider.notifier).restoreTodo(id),
-          ),
+      ..showSnackBar(SnackBar(
+        content: Text('"$text" 완료!'),
+        duration: _snackDuration,
+        action: SnackBarAction(
+          label: '취소',
+          onPressed: () =>
+              ref.read(activeTodosProvider.notifier).restoreTodo(id),
         ),
-      );
+      ));
   }
 
-  bool get _isDesktop => Platform.isMacOS || Platform.isWindows || Platform.isLinux;
+  bool get _isDesktop =>
+      Platform.isMacOS || Platform.isWindows || Platform.isLinux;
 
   @override
   Widget build(BuildContext context) {
     final todosAsync = ref.watch(activeTodosProvider);
+    final sortOrder = ref.watch(activeSortProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -82,8 +105,19 @@ class _MainScreenState extends ConsumerState<MainScreen> {
             IconButton(
               icon: const Icon(Icons.refresh),
               tooltip: '새로고침',
-              onPressed: () => ref.read(activeTodosProvider.notifier).refresh(),
+              onPressed: () =>
+                  ref.read(activeTodosProvider.notifier).refresh(),
             ),
+          SortMenu(
+            current: sortOrder,
+            onSelected: (order) =>
+                ref.read(activeSortProvider.notifier).state = order,
+            labels: const {
+              SortOrder.dateAsc: '날짜 오름차순',
+              SortOrder.dateDesc: '날짜 내림차순',
+              SortOrder.nameAsc: '이름순',
+            },
+          ),
           TextButton(
             onPressed: () => Navigator.push(
               context,
@@ -97,21 +131,23 @@ class _MainScreenState extends ConsumerState<MainScreen> {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('오류: $e')),
         data: (todos) {
-          if (todos.isEmpty) {
+          final sorted = _applySort(todos, sortOrder);
+          if (sorted.isEmpty) {
             return _EmptyState();
           }
           return ListView.separated(
             padding: const EdgeInsets.symmetric(vertical: 12),
-            itemCount: todos.length,
+            itemCount: sorted.length,
             separatorBuilder: (context, index) => const SizedBox(height: 4),
             itemBuilder: (context, index) {
-              final todo = todos[index];
+              final todo = sorted[index];
               return TodoTile(
                 key: ValueKey(todo.id),
                 todo: todo,
                 onCheck: () => _archiveTodo(todo.id, todo.text),
-                onEdit: (newText) =>
-                    ref.read(activeTodosProvider.notifier).updateTodo(todo.id, newText),
+                onEdit: (newText) => ref
+                    .read(activeTodosProvider.notifier)
+                    .updateTodo(todo.id, newText),
               );
             },
           );
@@ -132,8 +168,8 @@ class _MainScreenState extends ConsumerState<MainScreen> {
                       borderRadius: BorderRadius.circular(24),
                       borderSide: BorderSide.none,
                     ),
-                    contentPadding:
-                        const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
                   ),
                   onSubmitted: (_) => _addTodo(),
                   textInputAction: TextInputAction.done,
@@ -170,7 +206,8 @@ class _EmptyState extends StatelessWidget {
             curve: Curves.elasticOut,
             builder: (context, value, child) =>
                 Transform.scale(scale: value, child: child),
-            child: Icon(Icons.check_circle_outline, size: 72, color: color.withAlpha(80)),
+            child:
+                Icon(Icons.check_circle_outline, size: 72, color: color.withAlpha(80)),
           ),
           const SizedBox(height: 16),
           Text(
