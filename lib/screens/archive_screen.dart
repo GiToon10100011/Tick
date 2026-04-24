@@ -50,7 +50,7 @@ class ArchiveScreen extends ConsumerWidget {
           SortMenu(
             current: sortOrder,
             onSelected: (order) =>
-                ref.read(archiveSortProvider.notifier).state = order,
+                ref.read(archiveSortProvider.notifier).set(order),
             labels: const {
               SortOrder.dateAsc: '완료일 오래된순',
               SortOrder.dateDesc: '완료일 최신순',

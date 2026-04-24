@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/todo_item.dart';
 import '../repositories/local_queue_repo.dart';
@@ -209,13 +210,52 @@ final archivedTodosProvider = StateNotifierProvider.autoDispose<
 });
 
 // ---------------------------------------------------------------------------
-// Sort
+// Sort — persisted via SharedPreferences
 // ---------------------------------------------------------------------------
 
 enum SortOrder { dateAsc, dateDesc, nameAsc }
 
+class SortNotifier extends StateNotifier<SortOrder> {
+  SortNotifier(this._prefs, this._key, SortOrder defaultValue)
+      : super(_load(_prefs, _key, defaultValue));
+
+  final SharedPreferences _prefs;
+  final String _key;
+
+  static SortOrder _load(
+      SharedPreferences prefs, String key, SortOrder defaultValue) {
+    final saved = prefs.getString(key);
+    if (saved == null) return defaultValue;
+    return SortOrder.values.firstWhere(
+      (e) => e.name == saved,
+      orElse: () => defaultValue,
+    );
+  }
+
+  void set(SortOrder order) {
+    state = order;
+    _prefs.setString(_key, order.name);
+  }
+}
+
+/// SharedPreferences 인스턴스 — main.dart에서 override 필수.
+final sharedPrefsProvider =
+    Provider<SharedPreferences>((_) => throw UnimplementedError());
+
 final activeSortProvider =
-    StateProvider<SortOrder>((ref) => SortOrder.dateAsc);
+    StateNotifierProvider<SortNotifier, SortOrder>((ref) {
+  return SortNotifier(
+    ref.watch(sharedPrefsProvider),
+    'sort_active',
+    SortOrder.dateAsc,
+  );
+});
 
 final archiveSortProvider =
-    StateProvider<SortOrder>((ref) => SortOrder.dateDesc);
+    StateNotifierProvider<SortNotifier, SortOrder>((ref) {
+  return SortNotifier(
+    ref.watch(sharedPrefsProvider),
+    'sort_archive',
+    SortOrder.dateDesc,
+  );
+});

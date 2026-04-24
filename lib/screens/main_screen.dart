@@ -111,7 +111,7 @@ class _MainScreenState extends ConsumerState<MainScreen> {
           SortMenu(
             current: sortOrder,
             onSelected: (order) =>
-                ref.read(activeSortProvider.notifier).state = order,
+                ref.read(activeSortProvider.notifier).set(order),
             labels: const {
               SortOrder.dateAsc: '날짜 오름차순',
               SortOrder.dateDesc: '날짜 내림차순',

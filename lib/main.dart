@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:home_widget/home_widget.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/env.dart';
+import 'providers/todo_provider.dart';
 import 'core/theme.dart';
 import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
@@ -23,7 +25,11 @@ Future<void> main() async {
   if (Platform.isIOS) {
     await HomeWidget.setAppGroupId('group.com.tick.tick');
   }
-  runApp(const ProviderScope(child: TickApp()));
+  final prefs = await SharedPreferences.getInstance();
+  runApp(ProviderScope(
+    overrides: [sharedPrefsProvider.overrideWithValue(prefs)],
+    child: const TickApp(),
+  ));
 }
 
 class TickApp extends ConsumerWidget {
